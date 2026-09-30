@@ -520,6 +520,142 @@ export default PerformanceMonitor;
 
 ---
 
+## 8. Troubleshooting
+
+### 8.1 Common Issues
+
+```typescript
+// ปัญหา: Module ไม่พบ
+// สาเหตุ: ยังไม่ได้ register Turbo Module
+// แก้ไข: ตรวจสอบว่า module registered ใน MainApplication
+
+// ปัญหา: TypeScript errors จาก CodeGen
+// สาเหตุ: Spec file ไม่ถูกต้อง
+// แก้ไข: ตรวจสอบ TurboModule.Spec interface ให้ครบถ้วน
+
+// ปัญหา: Fabric render ผิดพลาด
+// สาเหตุ: Component ไม่รองรับ Fabric
+// แก้ไข: ใช้ Fabric-compatible libraries หรือ fallback
+
+// Debug New Architecture issues
+import { TurboModuleRegistry } from 'react-native';
+
+function debugModuleRegistration() {
+  const moduleNames = [
+    'CalendarModule',
+    'BiometricModule',
+    'NetworkModule'
+  ];
+  
+  moduleNames.forEach(name => {
+    const turbo = TurboModuleRegistry.get(name);
+    console.log(`${name}: ${turbo ? 'Turbo ✅' : 'Not found ❌'}`);
+  });
+}
+```
+
+### 8.2 การตรวจสอบ New Architecture Status
+
+```typescript
+// utils/architectureCheck.ts
+import { TurboModuleRegistry, Platform } from 'react-native';
+
+export function getArchitectureInfo(): {
+  isNewArchEnabled: boolean;
+  platform: string;
+  reactNativeVersion: string;
+  hermes: boolean;
+} {
+  const isHermes = !!(global as any).HermesInternal;
+  
+  // ทดสอบ Turbo Module availability
+  let isNewArch = false;
+  try {
+    // Turbo Modules สามารถ get ได้แบบ synchronous ใน New Arch
+    const testModule = TurboModuleRegistry.get('SomeTestModule');
+    isNewArch = true; // ถ้าไม่ throw แสดงว่า New Arch enabled
+  } catch {
+    isNewArch = false;
+  }
+  
+  const rnVersion = require('react-native/package.json').version;
+  
+  return {
+    isNewArchEnabled: isNewArch,
+    platform: Platform.OS,
+    reactNativeVersion: rnVersion,
+    hermes: isHermes
+  };
+}
+
+// Display Component
+import React from 'react';
+import { View, Text, StyleSheet } from 'react-native';
+
+export const ArchitectureInfoPanel: React.FC = () => {
+  const info = getArchitectureInfo();
+  
+  return (
+    <View style={styles.panel}>
+      <Text style={styles.title}>Architecture Info</Text>
+      <Row label="New Architecture" value={info.isNewArchEnabled ? '✅ Enabled' : '❌ Disabled'} />
+      <Row label="Hermes Engine" value={info.hermes ? '✅ Active' : '⚠️ JSC'} />
+      <Row label="Platform" value={info.platform} />
+      <Row label="RN Version" value={info.reactNativeVersion} />
+    </View>
+  );
+};
+
+const Row: React.FC<{ label: string; value: string }> = ({ label, value }) => (
+  <View style={styles.row}>
+    <Text style={styles.label}>{label}:</Text>
+    <Text style={styles.value}>{value}</Text>
+  </View>
+);
+
+const styles = StyleSheet.create({
+  panel: {
+    backgroundColor: '#1a1a2e',
+    borderRadius: 12,
+    padding: 16,
+    margin: 16
+  },
+  title: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: 'bold',
+    marginBottom: 10
+  },
+  row: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    paddingVertical: 4
+  },
+  label: { color: '#aaa', fontSize: 14 },
+  value: { color: '#fff', fontSize: 14, fontWeight: '500' }
+});
+```
+
+---
+
+## 9. Tips สำหรับ New Architecture
+
+### DO's
+1. ใช้ TypeScript สำหรับทุก Native Module spec
+2. Test บน physical device เสมอ (ไม่ใช่แค่ simulator)
+3. Enable Hermes พร้อมกับ New Architecture
+4. ตรวจสอบ third-party library compatibility ก่อน
+5. ทำ performance benchmarks ก่อนและหลัง migration
+
+### DON'Ts
+1. อย่า migrate production app ทันทีโดยไม่ทดสอบ
+2. อย่าใช้ eval() หรือ dynamic code execution
+3. อย่าลืม unsubscribe จาก event listeners
+4. อย่า mix legacy และ new architecture module patterns
+5. อย่าข้ามขั้นตอนใน migration guide
+
+---
+
 ## สรุป
 
 New Architecture ของ React Native เป็นการเปลี่ยนแปลงครั้งใหญ่ที่:
@@ -531,3 +667,4 @@ New Architecture ของ React Native เป็นการเปลี่ย�
 5. **Better Interop** - ทำงานร่วมกับ native code ได้ดีขึ้น
 
 การ migrate ต้องทำอย่างระมัดระวัง ตรวจสอบ dependencies และทดสอบอย่างละเอียดก่อน release
+แนะนำให้เริ่มจาก project ใหม่ที่ใช้ New Architecture ตั้งแต่ต้น แล้วค่อยย้าย logic จาก project เดิม
